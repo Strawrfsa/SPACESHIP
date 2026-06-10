@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEALFINDER · Deep Space Commerce</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;800&family=Space+Grotesk:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ion:#6ef3ff; --ion-dim:rgba(110,243,255,.35);
+  --flame:#ff8d2e; --gold:#ffd76a; --hull:#e9ecff; --dim:#7b84b8;
+  --ali:#ff5252; --temu:#ff8d2e; --ebay:#5aa8ff;
+  --panel:rgba(6,10,26,.72);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#000;font-family:'Space Grotesk',sans-serif;color:var(--hull)}
+#c3d{position:fixed;inset:0;z-index:0;display:block;cursor:grab;touch-action:none}
+#c3d.grabbing{cursor:grabbing}
+#ui{position:fixed;inset:0;z-index:10;pointer-events:none}
+.pe{pointer-events:auto}
+
+#fx{position:fixed;inset:0;z-index:5;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 60%, transparent 55%, rgba(0,0,5,.55) 100%);}
+#fx::after{content:"";position:absolute;inset:0;opacity:.05;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.7) 0 1px, transparent 1px 3px);}
+#flash{position:fixed;inset:0;z-index:6;pointer-events:none;background:#bfe9ff;opacity:0;transition:opacity .25s}
+
+/* countdown */
+#count{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;pointer-events:none;
+  font-family:'Unbounded';font-weight:800;font-size:clamp(90px,22vw,240px);color:var(--ion);
+  text-shadow:0 0 60px rgba(110,243,255,.8)}
+#count.show{display:flex;animation:countPop .62s ease-out}
+@keyframes countPop{0%{transform:scale(1.6);opacity:0}25%{opacity:1}100%{transform:scale(.92);opacity:0}}
+
+.corner{position:absolute;width:60px;height:60px;border:1px solid var(--ion-dim);opacity:.8}
+.corner.tl{top:14px;left:14px;border-right:none;border-bottom:none}
+.corner.tr{top:14px;right:14px;border-left:none;border-bottom:none}
+.corner.bl{bottom:14px;left:14px;border-right:none;border-top:none}
+.corner.br{bottom:14px;right:14px;border-left:none;border-top:none}
+
+#topbar{position:absolute;top:22px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:18px;z-index:4;
+  font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:.22em;color:var(--ion);text-transform:uppercase;
+  background:var(--panel);border:1px solid var(--ion-dim);padding:10px 22px;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%);}
+#topbar .sep{opacity:.35}
+#phase{color:var(--gold)}
+#clock{min-width:86px;text-align:right}
+
+#compass{position:absolute;top:74px;left:50%;transform:translateX(-50%);width:340px;height:22px;overflow:hidden;z-index:4;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 25%,#000 75%,transparent);mask-image:linear-gradient(90deg,transparent,#000 25%,#000 75%,transparent)}
+#compassStrip{position:absolute;top:0;left:50%;white-space:nowrap;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--ion);letter-spacing:.1em;opacity:.85}
+#compassStrip span{display:inline-block;width:85px;text-align:center}
+#compass::after{content:"▼";position:absolute;left:50%;top:-4px;transform:translateX(-50%);color:var(--gold);font-size:8px}
+
+#telemetry{position:absolute;left:26px;top:50%;transform:translateY(-50%);font-family:'Share Tech Mono',monospace;z-index:4;
+  font-size:11px;color:var(--dim);line-height:2;letter-spacing:.12em;text-transform:uppercase;
+  background:var(--panel);border:1px solid rgba(110,243,255,.18);padding:12px 16px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+#telemetry b{color:var(--ion);font-weight:400}
+#telemetry .bar{display:inline-block;width:70px;height:4px;background:rgba(110,243,255,.12);vertical-align:middle;margin-left:8px;position:relative;overflow:hidden}
+#telemetry .bar i{position:absolute;inset:0;background:var(--ion);transform-origin:left;transform:scaleX(.4);transition:transform .6s}
+
+/* center reticle */
+#reticle{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;display:none;opacity:.85}
+#reticle svg{display:block}
+#retInfo{position:absolute;left:50%;top:calc(50% + 44px);transform:translateX(-50%);z-index:3;display:none;
+  font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--ion);
+  background:var(--panel);border:1px solid var(--ion-dim);padding:6px 12px;white-space:nowrap}
+
+#console{position:absolute;left:50%;bottom:7vh;transform:translateX(-50%);width:min(640px,92vw);transition:opacity .6s, transform .6s;z-index:4}
+#console.gone{opacity:0;transform:translateX(-50%) translateY(30px);pointer-events:none}
+.copilot{display:flex;gap:14px;margin-bottom:14px;align-items:flex-end}
+.orb{width:52px;height:52px;border-radius:50%;flex-shrink:0;position:relative;
+  background:radial-gradient(circle at 35% 30%, #d9fbff 0%, var(--ion) 35%, #0a2d6b 80%);
+  box-shadow:0 0 28px var(--ion-dim), inset 0 0 16px rgba(255,255,255,.3);animation:orb 3.4s ease-in-out infinite}
+.orb::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:1px solid var(--ion-dim);animation:orbring 3.4s linear infinite}
+@keyframes orb{50%{box-shadow:0 0 44px rgba(110,243,255,.75), inset 0 0 16px rgba(255,255,255,.3)}}
+@keyframes orbring{to{transform:rotate(360deg) scale(1.06)}}
+.bubble{background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--ion-dim);border-radius:2px 16px 16px 16px;
+  padding:14px 18px;font-size:14.5px;line-height:1.55;min-height:52px}
+.bubble b{color:var(--ion)}
+#typed::after{content:"▋";color:var(--ion);animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+#promptRow{display:flex;gap:10px}
+#promptInput{flex:1;background:rgba(110,243,255,.05);border:1px solid var(--ion-dim);padding:16px 18px;
+  font-family:'Share Tech Mono',monospace;font-size:15px;color:var(--hull);outline:none;letter-spacing:.04em;
+  clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);transition:background .2s,border .2s}
+#promptInput:focus{border-color:var(--ion);background:rgba(110,243,255,.1)}
+#promptInput::placeholder{color:var(--dim)}
+#launchBtn{position:relative;background:linear-gradient(160deg,#ffb35e,var(--flame));color:#220c00;border:none;padding:0 30px;
+  font-family:'Unbounded';font-weight:800;font-size:13px;letter-spacing:.1em;cursor:pointer;
+  clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);transition:filter .15s, transform .1s}
+#launchBtn:hover{filter:brightness(1.15)}
+#launchBtn:active{transform:scale(.97)}
+#launchBtn:focus-visible,#promptInput:focus-visible{outline:2px solid var(--ion);outline-offset:2px}
+#hintRow{display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--dim);font-family:'Share Tech Mono',monospace;letter-spacing:.1em}
+
+.plabel{position:absolute;transform:translate(-50%,-110%);pointer-events:auto;cursor:pointer;z-index:2;
+  background:var(--panel);backdrop-filter:blur(6px);border:1px solid rgba(233,236,255,.16);
+  padding:10px 13px;width:190px;opacity:0;transition:opacity .4s, border .3s, box-shadow .3s;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.plabel.shown{opacity:1}
+.plabel:hover{border-color:var(--ion);box-shadow:0 0 24px rgba(110,243,255,.25)}
+.plabel .ln{width:1px;height:26px;background:linear-gradient(to bottom,transparent,var(--ion-dim));position:absolute;left:50%;top:100%}
+.plabel .pn{font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:32px}
+.plabel .pp{font-family:'Unbounded';font-weight:500;font-size:16px;margin-top:4px}
+.plabel .pr{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.plabel .ps{font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;padding:2px 8px;border:1px solid}
+.plabel .open{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--ion);letter-spacing:.1em;opacity:.85}
+.plabel:hover .open{text-decoration:underline}
+.ps.aliexpress{color:var(--ali);border-color:rgba(255,82,82,.4)}
+.ps.temu{color:var(--temu);border-color:rgba(255,141,46,.4)}
+.ps.ebay{color:var(--ebay);border-color:rgba(90,168,255,.4)}
+.plabel.win{border-color:var(--gold);box-shadow:0 0 30px rgba(255,215,106,.25)}
+.plabel.win .pp{color:var(--gold)}
+.plabel.dimmed{opacity:.3;filter:grayscale(.7)}
+
+.edge{position:absolute;pointer-events:none;display:flex;align-items:center;gap:6px;z-index:1;
+  font-family:'Share Tech Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--hull);
+  background:rgba(6,10,26,.78);border:1px solid rgba(233,236,255,.2);padding:4px 9px;white-space:nowrap;transition:opacity .3s}
+.edge .arr{font-size:12px;display:inline-block}
+.edge.win{border-color:var(--gold);color:var(--gold);box-shadow:0 0 16px rgba(255,215,106,.3)}
+
+#winPanel{position:absolute;right:26px;bottom:26px;width:min(380px,calc(100vw - 52px));opacity:0;transform:translateX(30px);transition:opacity .8s,transform .8s;z-index:5;
+  background:linear-gradient(165deg, rgba(20,16,4,.92), rgba(6,10,26,.94));border:1px solid var(--gold);padding:22px;
+  clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);
+  box-shadow:0 0 60px rgba(255,215,106,.15)}
+#winPanel.shown{opacity:1;transform:translateX(0)}
+#winPanel .crown{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.34em;color:var(--gold);text-transform:uppercase}
+#winPanel .wn{font-size:16.5px;font-weight:700;line-height:1.4;margin-top:10px}
+#winPanel .wr{display:flex;align-items:baseline;gap:14px;margin-top:10px;flex-wrap:wrap}
+#winPanel .wp{font-family:'Unbounded';font-weight:800;font-size:30px;color:var(--gold)}
+#winPanel .ws{font-size:12.5px;color:#7dffa1;font-family:'Share Tech Mono',monospace}
+#winPanel .ww{margin-top:12px;font-size:13px;color:var(--dim);line-height:1.55;border-left:2px solid var(--ion);padding-left:12px}
+#winPanel .wb{display:flex;gap:10px;margin-top:18px}
+.btn{flex:1;text-align:center;padding:14px 8px;font-family:'Unbounded';font-size:11.5px;font-weight:800;letter-spacing:.06em;cursor:pointer;border:none;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.btn.go{background:var(--gold);color:#241a00}
+.btn.again{background:transparent;border:1px solid rgba(233,236,255,.3);color:var(--hull)}
+.btn:hover{filter:brightness(1.12)}
+
+#muteBtn{position:absolute;top:22px;right:26px;background:var(--panel);border:1px solid var(--ion-dim);color:var(--ion);z-index:4;
+  font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.15em;padding:9px 14px;cursor:pointer}
+#muteBtn:hover{background:rgba(110,243,255,.12)}
+#loadnote{position:absolute;left:26px;bottom:22px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+
+/* ---------- v4: vyber rezimu ---------- */
+#modeMenu{position:absolute;left:50%;bottom:16vh;transform:translateX(-50%);display:flex;gap:18px;z-index:6;flex-wrap:wrap;justify-content:center}
+.mode{width:250px;padding:20px 18px;background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--ion-dim);cursor:pointer;text-align:left;color:var(--hull);
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);transition:border .2s,box-shadow .2s,transform .15s}
+.mode:hover{border-color:var(--ion);box-shadow:0 0 30px rgba(110,243,255,.22);transform:translateY(-3px)}
+.mode h3{font-family:'Unbounded';font-size:14px;letter-spacing:.06em;color:var(--ion);margin-bottom:8px}
+.mode.fly h3{color:var(--gold)}
+.mode.fly:hover{border-color:var(--gold);box-shadow:0 0 30px rgba(255,215,106,.22)}
+.mode p{font-size:12px;color:var(--dim);line-height:1.5}
+.mode .tag{display:inline-block;margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:9.5px;letter-spacing:.2em;color:var(--flame)}
+
+/* ---------- v4: volny let UI ---------- */
+#browseBar{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:min(700px,94vw);display:none;z-index:6}
+#browseBar.shown{display:block}
+#browseRow{display:flex;gap:10px}
+#browseInput{flex:1;background:rgba(110,243,255,.05);border:1px solid var(--ion-dim);padding:13px 16px;
+  font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--hull);outline:none;letter-spacing:.04em;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);transition:border .2s,background .2s}
+#browseInput:focus{border-color:var(--ion);background:rgba(110,243,255,.1)}
+#browseInput::placeholder{color:var(--dim)}
+#browseGo{background:var(--ion);color:#02131f;border:none;padding:0 24px;font-family:'Unbounded';font-weight:800;font-size:11px;letter-spacing:.08em;cursor:pointer;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+#browseGo:hover{filter:brightness(1.15)}
+#cats{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+.cat{font-family:'Share Tech Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--dim);background:var(--panel);
+  border:1px solid rgba(233,236,255,.18);padding:7px 13px;cursor:pointer;transition:all .15s}
+.cat:hover{color:var(--ion);border-color:var(--ion-dim)}
+.cat.on{color:#02131f;background:var(--ion);border-color:var(--ion)}
+#flyHint{margin-top:9px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:.14em}
+#dockBtn{position:absolute;top:64px;right:26px;display:none;background:var(--panel);border:1px solid rgba(255,141,46,.45);color:var(--flame);z-index:6;
+  font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.15em;padding:9px 14px;cursor:pointer}
+#dockBtn.shown{display:block}
+#dockBtn:hover{background:rgba(255,141,46,.12)}
+
+@media (max-width:760px){
+  #telemetry{display:none}
+  #compass{width:220px}
+  #topbar{font-size:10px;gap:10px;padding:8px 14px}
+  .plabel{width:152px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001s !important;transition-duration:.001s !important}
+}
+</style>
+</head>
+<body>
+<canvas id="c3d"></canvas>
+<div id="fx"></div>
+<div id="flash"></div>
+<div id="count"></div>
+
+<div id="ui">
+  <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+
+  <div id="topbar">
+    <span>DEALFINDER&nbsp;OS</span><span class="sep">│</span>
+    <span id="phase">DOK · PRIPRAVENÁ</span><span class="sep">│</span>
+    <span id="clock">00:00:00</span>
+  </div>
+  <div id="compass"><div id="compassStrip"></div></div>
+
+  <button id="muteBtn" class="pe">♪ ZVUK: ON</button>
+
+  <div id="telemetry">
+    <div>VELOCITY <b id="tVel">0.00c</b><span class="bar"><i id="bVel"></i></span></div>
+    <div>FUEL <b>98.2%</b><span class="bar"><i style="transform:scaleX(.98)"></i></span></div>
+    <div>SHIELD <b>OK</b><span class="bar"><i style="transform:scaleX(.86)"></i></span></div>
+    <div>SECTOR <b id="tSec">SOL · DOK 7</b></div>
+    <div>SIGNÁLY <b id="tSig">0</b></div>
+  </div>
+
+  <div id="reticle"><svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+    <circle cx="28" cy="28" r="20" stroke="#6ef3ff" stroke-opacity=".5" stroke-dasharray="6 8"/>
+    <path d="M28 4v10M28 42v10M4 28h10M42 28h10" stroke="#6ef3ff" stroke-opacity=".8"/>
+  </svg></div>
+  <div id="retInfo"></div>
+
+  <div id="console" class="pe">
+    <div class="copilot">
+      <div class="orb"></div>
+      <div class="bubble"><span id="typed"></span></div>
+    </div>
+    <div id="promptRow">
+      <input id="promptInput" type="text" placeholder="› zadaj cieľ misie… (napr. mechanická klávesnica do 50 €)" autocomplete="off" maxlength="140">
+      <button id="launchBtn">ŠTART</button>
+    </div>
+    <div id="hintRow"><span>ŤAHAJ MYŠOU / PRSTOM = 360° ROZHĽAD</span><span>ENTER = ZÁŽIH</span></div>
+  </div>
+
+  <div id="edges"></div>
+  <div id="labels"></div>
+
+  <div id="winPanel">
+    <div class="crown">⬡ OPTIMÁLNY DEAL LOKALIZOVANÝ</div>
+    <div class="wn" id="wName"></div>
+    <div class="wr"><span class="wp" id="wPrice"></span><span class="ws" id="wSave"></span></div>
+    <div class="ww" id="wWhy"></div>
+    <div class="wb">
+      <button class="btn go pe" id="wGo">OTVORIŤ DEAL ↗</button>
+      <button class="btn again pe" id="wAgain">NOVÁ MISIA</button>
+    </div>
+  </div>
+
+  <div id="modeMenu" class="pe">
+    <button class="mode ai" id="modeAI"><h3>&#x2b21; AI MISIA</h3><p>Zad&#225;&#353;, &#269;o h&#318;ad&#225;&#353; &mdash; NAVI presken&#367;je galaxiu a dolet&#237; k najlep&#353;iemu dealu.</p><span class="tag">AUTOPILOT</span></button>
+    <button class="mode fly" id="modeFly"><h3>&#x2726; VO&#317;N&#221; LET</h3><p>S&#225;m pilotuje&#353; raketu medzi plan&#233;tami produktov. Vyber kateg&#243;riu alebo h&#318;adaj.</p><span class="tag">MANU&#193;LNE RIADENIE &#183; WASD</span></button>
+  </div>
+
+  <div id="browseBar">
+    <div id="browseRow" class="pe">
+      <input id="browseInput" type="text" placeholder="&#8250; h&#318;adaj produkt v sektore&hellip;" autocomplete="off" maxlength="120">
+      <button id="browseGo">SKEN</button>
+    </div>
+    <div id="cats" class="pe"></div>
+    <div id="flyHint">W A S D = LET &#183; SPACE / SHIFT = HORE / DOLE &#183; MY&#352; = ROZH&#317;AD &#183; KLIK NA &#352;T&#205;TOK = OTVORI&#356; DEAL</div>
+  </div>
+  <button id="dockBtn" class="pe">&#8962; SP&#196;&#356; DO DOKU</button>
+
+  <div id="loadnote">PROTOTYP · KLIK NA PLANÉTU = ZAMERAŤ · KLIK NA ŠTÍTOK = OTVORIŤ</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   DEALFINDER v3 — panoramatický kokpit, occlusion, countdown, FOV warp
+   ===================================================================== */
+const $=id=>document.getElementById(id);
+const lerp=(a,b,t)=>a+(b-a)*t;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+const canvasEl=$('c3d');
+const renderer=new THREE.WebGLRenderer({canvas:canvasEl,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));
+renderer.setSize(innerWidth,innerHeight);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x02030c,0.00018);
+
+const BASE_FOV=74;
+const camera=new THREE.PerspectiveCamera(BASE_FOV,innerWidth/innerHeight,0.05,9000);
+const shipGroup=new THREE.Group();
+const camRig=new THREE.Group();
+camRig.add(camera);
+shipGroup.add(camRig);
+scene.add(shipGroup);
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+/* ---------------- LIGHTS ---------------- */
+scene.add(new THREE.AmbientLight(0x223355,.6));
+const sunLight=new THREE.DirectionalLight(0xfff2dd,1.5);
+sunLight.position.set(400,180,-600);scene.add(sunLight);
+const cockpitLight=new THREE.PointLight(0x6ef3ff,1.0,7);
+cockpitLight.position.set(0,0.9,0);shipGroup.add(cockpitLight);
+const dashLight=new THREE.PointLight(0xff8d2e,.5,4);
+dashLight.position.set(0,-0.8,-1.4);shipGroup.add(dashLight);
+
+/* ---------------- TEXTÚRY ---------------- */
+function noiseCanvas(size,fn){
+  const c=document.createElement('canvas');c.width=c.height=size;
+  const x=c.getContext('2d');fn(x,size);return new THREE.CanvasTexture(c);
+}
+function makeFBM(seed){
+  const rnd=(()=>{let s=seed;return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646;};})();
+  const g=[];for(let i=0;i<256;i++)g.push(rnd());
+  const n=(x,y)=>{const xi=Math.floor(x)&255,yi=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y);
+    const tl=g[(xi+yi*57)&255],tr=g[(xi+1+yi*57)&255],bl=g[(xi+(yi+1)*57)&255],br=g[(xi+1+(yi+1)*57)&255];
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    return lerp(lerp(tl,tr,u),lerp(bl,br,u),v);};
+  return (x,y)=>{let a=0,f=1,amp=.55,tot=0;
+    for(let o=0;o<5;o++){a+=n(x*f,y*f)*amp;tot+=amp;f*=2.1;amp*=.5;}
+    return a/tot;};
+}
+/* textúra trupu — panely, nity, svetelné štrbiny */
+function hullTexture(glow){
+  const t=noiseCanvas(256,(x,s)=>{
+    x.fillStyle='#0c111d';x.fillRect(0,0,s,s);
+    x.strokeStyle='#161e30';x.lineWidth=2;
+    for(let i=0;i<=4;i++){x.beginPath();x.moveTo(i*64,0);x.lineTo(i*64,s);x.stroke();}
+    for(let i=0;i<=4;i++){x.beginPath();x.moveTo(0,i*64);x.lineTo(s,i*64);x.stroke();}
+    x.fillStyle='#1b2435';
+    for(let i=0;i<40;i++)x.fillRect(Math.random()*s,Math.random()*s,2,2);
+    if(glow){
+      x.fillStyle=glow;
+      for(let i=0;i<3;i++)x.fillRect(20+i*80,118,42,3);
+    }
+  });
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  return t;
+}
+
+/* ---------------- HVIEZDY ---------------- */
+function starLayer(count,rMin,rMax,size,hueShift){
+  const geo=new THREE.BufferGeometry();
+  const pos=new Float32Array(count*3),col=new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    const r=rMin+Math.random()*(rMax-rMin);
+    const th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1);
+    pos[i*3]=r*Math.sin(ph)*Math.cos(th);
+    pos[i*3+1]=r*Math.cos(ph)*0.8;
+    pos[i*3+2]=r*Math.sin(ph)*Math.sin(th);
+    const t=Math.random();
+    col[i*3]=.75+.25*t;col[i*3+1]=.8+.2*(1-Math.abs(t-.5));col[i*3+2]=.85+.15*(1-t)+hueShift;
+  }
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const tex=noiseCanvas(64,(x,s)=>{
+    const g=x.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);
+    g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.4,'rgba(255,255,255,.4)');g.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=g;x.fillRect(0,0,s,s);
+  });
+  const pts=new THREE.Points(geo,new THREE.PointsMaterial({size,map:tex,vertexColors:true,transparent:true,
+    blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true}));
+  scene.add(pts);return pts;
+}
+const starsFar=starLayer(2600,1400,2600,5,0);
+const starsMid=starLayer(1600,500,1300,3.4,.05);
+const starsNear=starLayer(500,120,480,2.2,.1);
+
+/* ---------------- NEBULY + SLNKO + ZEM ---------------- */
+function nebulaSprite(colA,colB,scale,px,py,pz){
+  const tex=noiseCanvas(256,(x,s)=>{
+    const fbm=makeFBM(Math.floor(Math.random()*9999)+1);
+    const img=x.createImageData(s,s);
+    for(let j=0;j<s;j++)for(let i=0;i<s;i++){
+      const dx=i/s-.5,dy=j/s-.5,d=Math.sqrt(dx*dx+dy*dy);
+      const v=fbm(i/38,j/38)*Math.max(0,1-d*2.15);
+      const k=(j*s+i)*4;
+      img.data[k]=colA[0]*v+colB[0]*(1-v)*v;
+      img.data[k+1]=colA[1]*v+colB[1]*(1-v)*v;
+      img.data[k+2]=colA[2]*v+colB[2]*(1-v)*v;
+      img.data[k+3]=v*150;
+    }
+    x.putImageData(img,0,0);
+  });
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,
+    blending:THREE.AdditiveBlending,depthWrite:false,opacity:.8}));
+  sp.scale.set(scale,scale,1);sp.position.set(px,py,pz);scene.add(sp);return sp;
+}
+nebulaSprite([90,40,190],[10,30,120],2200,-900,250,-1900);
+nebulaSprite([20,90,160],[10,20,80],1700,1100,-150,-1600);
+nebulaSprite([180,60,90],[60,10,60],1300,300,500,-2300);
+nebulaSprite([60,160,140],[10,60,80],1900,-400,-200,2000);
+
+const sunTex=noiseCanvas(256,(x,s)=>{
+  const g=x.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);
+  g.addColorStop(0,'rgba(255,250,235,1)');g.addColorStop(.18,'rgba(255,225,160,.95)');
+  g.addColorStop(.45,'rgba(255,160,70,.35)');g.addColorStop(1,'rgba(255,120,40,0)');
+  x.fillStyle=g;x.fillRect(0,0,s,s);
+});
+const sun=new THREE.Sprite(new THREE.SpriteMaterial({map:sunTex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+sun.scale.set(620,620,1);sun.position.set(900,380,-2400);scene.add(sun);
+
+const earthTexC=noiseCanvas(512,(x,s)=>{
+  const fbm=makeFBM(77);
+  const img=x.createImageData(s,s);
+  for(let j=0;j<s;j++)for(let i=0;i<s;i++){
+    const v=fbm(i/55,j/55),k=(j*s+i)*4;let r,g,b;
+    if(v<.46){r=18;g=60+v*90;b=140+v*90;}
+    else if(v<.52){r=200;g=190;b=150;}
+    else if(v<.66){r=40+v*60;g=110+v*70;b=50;}
+    else{r=235;g=240;b=245;}
+    img.data[k]=r;img.data[k+1]=g;img.data[k+2]=b;img.data[k+3]=255;
+  }
+  x.putImageData(img,0,0);
+});
+const earth=new THREE.Mesh(new THREE.SphereGeometry(260,48,48),
+  new THREE.MeshStandardMaterial({map:earthTexC,roughness:.9,metalness:0}));
+earth.position.set(60,-340,-260);scene.add(earth);
+const earthGlowTex=noiseCanvas(128,(x,s)=>{
+  const g=x.createRadialGradient(s/2,s/2,s*0.28,s/2,s/2,s/2);
+  g.addColorStop(0,'rgba(90,170,255,0)');g.addColorStop(.7,'rgba(90,170,255,.5)');g.addColorStop(1,'rgba(90,170,255,0)');
+  x.fillStyle=g;x.fillRect(0,0,s,s);
+});
+const earthGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:earthGlowTex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+earthGlow.scale.set(640,640,1);earthGlow.position.copy(earth.position);scene.add(earthGlow);
+
+/* =====================================================================
+   KOKPIT v3 — uzavretá panoramatická kapsula s oknami dookola
+   ===================================================================== */
+const cockpit=new THREE.Group();shipGroup.add(cockpit);
+const occluders=[]; // meshe trupu pre occlusion test labelov
+const R=2.25;
+
+const hullMatPlain=new THREE.MeshStandardMaterial({map:hullTexture(null),roughness:.6,metalness:.65,side:THREE.BackSide});
+hullMatPlain.map.repeat.set(8,1);
+const hullMatGlow=new THREE.MeshStandardMaterial({map:hullTexture('#2bd9ec'),roughness:.6,metalness:.65,side:THREE.BackSide,
+  emissive:0x6ef3ff,emissiveIntensity:.06,emissiveMap:hullTexture('#ffffff')});
+hullMatGlow.map.repeat.set(8,1);hullMatGlow.emissiveMap.repeat.set(8,1);
+const solidMat=new THREE.MeshStandardMaterial({color:0x101522,roughness:.55,metalness:.7});
+const trimMat=new THREE.MeshStandardMaterial({color:0x0a0e18,roughness:.4,metalness:.85,emissive:0x6ef3ff,emissiveIntensity:.3});
+
+/* spodný pás (parapet) */
+const lowerBand=new THREE.Mesh(new THREE.CylinderGeometry(R,R*1.04,1.0,48,1,true),hullMatGlow);
+lowerBand.position.y=-1.02;cockpit.add(lowerBand);occluders.push(lowerBand);
+/* horný pás */
+const upperBand=new THREE.Mesh(new THREE.CylinderGeometry(R*0.92,R,0.5,48,1,true),hullMatPlain);
+upperBand.position.y=1.32;cockpit.add(upperBand);occluders.push(upperBand);
+/* podlaha s mriežkou */
+const floorTex=noiseCanvas(256,(x,s)=>{
+  x.fillStyle='#0a0e18';x.fillRect(0,0,s,s);
+  x.strokeStyle='#13305a';x.lineWidth=2;
+  for(let i=0;i<=8;i++){x.beginPath();x.moveTo(i*32,0);x.lineTo(i*32,s);x.stroke();
+    x.beginPath();x.moveTo(0,i*32);x.lineTo(s,i*32);x.stroke();}
+});
+const floorM=new THREE.Mesh(new THREE.CircleGeometry(R*1.05,48),
+  new THREE.MeshStandardMaterial({map:floorTex,roughness:.7,metalness:.5}));
+floorM.rotation.x=-Math.PI/2;floorM.position.y=-1.52;cockpit.add(floorM);occluders.push(floorM);
+/* strop + svetelný prstenec */
+const ceilM=new THREE.Mesh(new THREE.CircleGeometry(R*0.95,48),solidMat);
+ceilM.rotation.x=Math.PI/2;ceilM.position.y=1.57;cockpit.add(ceilM);occluders.push(ceilM);
+const ceilRing=new THREE.Mesh(new THREE.TorusGeometry(R*0.5,.035,10,48),
+  new THREE.MeshStandardMaterial({color:0x0a0e18,emissive:0x6ef3ff,emissiveIntensity:1.4}));
+ceilRing.rotation.x=Math.PI/2;ceilRing.position.y=1.55;cockpit.add(ceilRing);
+
+/* piliere medzi oknami — vpredu (0°) je čisté najširšie okno */
+const leds=[];
+const pillarAngles=[42,95,142,180,218,265,318];
+pillarAngles.forEach(deg=>{
+  const th=deg*Math.PI/180;
+  const p=new THREE.Mesh(new THREE.BoxGeometry(.24,2.1,.16),solidMat);
+  p.position.set(R*Math.sin(th),0.27,-R*Math.cos(th));
+  p.rotation.y=-th;
+  cockpit.add(p);occluders.push(p);
+  /* LED na pilieri */
+  const led=new THREE.Mesh(new THREE.SphereGeometry(.025,8,8),
+    new THREE.MeshStandardMaterial({color:0x111,emissive:0x6ef3ff,emissiveIntensity:1.5}));
+  led.position.set((R-.1)*Math.sin(th),1.05,-(R-.1)*Math.cos(th));
+  led.userData.blink=Math.random()*6.28;
+  cockpit.add(led);leds.push(led);
+});
+/* "sklo" — jemná panoráma */
+const glass=new THREE.Mesh(new THREE.CylinderGeometry(R-0.03,R-0.03,2.1,48,1,true),
+  new THREE.MeshBasicMaterial({color:0x9fd8ff,transparent:true,opacity:.04,side:THREE.BackSide,depthWrite:false}));
+glass.position.y=0.27;cockpit.add(glass);
+
+/* dvere vzadu (na spodnom páse, otočené dnu) */
+const doorTex=noiseCanvas(256,(x,s)=>{
+  x.fillStyle='#101624';x.fillRect(0,0,s,s);
+  x.strokeStyle='#2bd9ec';x.lineWidth=3;x.strokeRect(28,12,200,232);
+  x.strokeStyle='#1b2435';x.lineWidth=2;
+  x.beginPath();x.moveTo(128,12);x.lineTo(128,244);x.stroke();
+  x.fillStyle='#ff8d2e';x.beginPath();x.arc(128,128,16,0,6.29);x.fill();
+  x.fillStyle='#101624';x.beginPath();x.arc(128,128,9,0,6.29);x.fill();
+});
+const door=new THREE.Mesh(new THREE.PlaneGeometry(.95,1.0),
+  new THREE.MeshStandardMaterial({map:doorTex,roughness:.5,metalness:.5,emissive:0x6ef3ff,emissiveIntensity:.05,emissiveMap:doorTex}));
+door.position.set(0,-1.0,R-0.06);door.rotation.y=Math.PI;cockpit.add(door);
+
+/* dashboard pod predným oknom */
+const dash=new THREE.Mesh(new THREE.BoxGeometry(2.4,.42,.7),solidMat);
+dash.position.set(0,-0.92,-1.55);dash.rotation.x=-.32;cockpit.add(dash);occluders.push(dash);
+const dashTop=new THREE.Mesh(new THREE.BoxGeometry(2.2,.05,.42),trimMat);
+dashTop.position.set(0,-0.7,-1.62);dashTop.rotation.x=-.46;cockpit.add(dashTop);
+
+function screenTexture(lines,color){
+  const c=document.createElement('canvas');c.width=256;c.height=128;
+  const x=c.getContext('2d');
+  x.fillStyle='#030710';x.fillRect(0,0,256,128);
+  x.strokeStyle=color;x.globalAlpha=.25;
+  for(let i=0;i<6;i++){x.beginPath();x.moveTo(0,i*22+8);x.lineTo(256,i*22+8);x.stroke();}
+  x.globalAlpha=1;x.fillStyle=color;x.font='13px monospace';
+  lines.forEach((l,i)=>x.fillText(l,12,26+i*24));
+  x.beginPath();x.moveTo(140,100);
+  for(let i=0;i<14;i++)x.lineTo(140+i*8,100-Math.random()*36);
+  x.stroke();
+  return new THREE.CanvasTexture(c);
+}
+const scr1=new THREE.Mesh(new THREE.PlaneGeometry(.66,.33),
+  new THREE.MeshBasicMaterial({map:screenTexture(['NAV ▸ SOL DOK-7','ORB 412 KM','SYS NOMINAL'],'#6ef3ff'),transparent:true,opacity:.94}));
+scr1.position.set(-.66,-.76,-1.48);scr1.rotation.set(-.4,.1,0);cockpit.add(scr1);
+const scr2=new THREE.Mesh(new THREE.PlaneGeometry(.66,.33),
+  new THREE.MeshBasicMaterial({map:screenTexture(['DEAL-SCAN v3.3','ALI · TEMU · EBAY','READY ▸'],'#ffd76a'),transparent:true,opacity:.94}));
+scr2.position.set(.66,-.76,-1.48);scr2.rotation.set(-.4,-.1,0);cockpit.add(scr2);
+
+/* joystick + sedadlo */
+const stick=new THREE.Group();
+const stArm=new THREE.Mesh(new THREE.CylinderGeometry(.03,.045,.38,10),solidMat);stArm.position.y=.19;stick.add(stArm);
+const stBall=new THREE.Mesh(new THREE.SphereGeometry(.07,14,14),
+  new THREE.MeshStandardMaterial({color:0x1a2030,roughness:.3,metalness:.6,emissive:0xff8d2e,emissiveIntensity:.4}));
+stBall.position.y=.4;stick.add(stBall);
+stick.position.set(.42,-1.22,-1.1);stick.rotation.x=-.12;cockpit.add(stick);
+const seat=new THREE.Mesh(new THREE.BoxGeometry(.66,.14,.62),solidMat);
+seat.position.set(0,-1.12,0.55);cockpit.add(seat);
+const seatBack=new THREE.Mesh(new THREE.BoxGeometry(.66,.82,.13),solidMat);
+seatBack.position.set(0,-0.66,0.88);seatBack.rotation.x=.12;cockpit.add(seatBack);occluders.push(seatBack);
+
+/* talizman — hojdajúce sa kocky pod stropom */
+const talisman=new THREE.Group();
+const tLine=new THREE.Mesh(new THREE.CylinderGeometry(.004,.004,.42,4),
+  new THREE.MeshBasicMaterial({color:0x666a88}));
+tLine.position.y=-.21;talisman.add(tLine);
+const diceMat=new THREE.MeshStandardMaterial({color:0xe9ecff,roughness:.6,metalness:.05});
+const dice1=new THREE.Mesh(new THREE.BoxGeometry(.085,.085,.085),diceMat);
+dice1.position.set(-.035,-.46,0);dice1.rotation.set(.4,.6,.1);talisman.add(dice1);
+const dice2=new THREE.Mesh(new THREE.BoxGeometry(.085,.085,.085),
+  new THREE.MeshStandardMaterial({color:0xff8d2e,roughness:.6}));
+dice2.position.set(.045,-.5,.02);dice2.rotation.set(.2,.3,.5);talisman.add(dice2);
+talisman.position.set(.55,1.52,-1.35);cockpit.add(talisman);
+
+/* LED pole je naplnené pri pilieroch vyššie */
+
+/* ---------------- WARP TUNEL ---------------- */
+const WARP_N=420;
+const warpGeo=new THREE.BufferGeometry();
+const wPos=new Float32Array(WARP_N*6);
+const wData=[];
+for(let i=0;i<WARP_N;i++){
+  const a=Math.random()*Math.PI*2, r=2.6+Math.random()*26;
+  wData.push({a,r,z:-Math.random()*300,sp:2.2+Math.random()*4});
+}
+warpGeo.setAttribute('position',new THREE.BufferAttribute(wPos,3));
+const warpMat=new THREE.LineBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false});
+const warpLines=new THREE.LineSegments(warpGeo,warpMat);
+shipGroup.add(warpLines);
+
+/* ---------------- PLANÉTY ---------------- */
+const PALETTES=[
+  {a:[255,120,160],b:[120,20,80],ocean:[40,10,60]},
+  {a:[120,240,255],b:[20,80,160],ocean:[8,30,90]},
+  {a:[255,210,120],b:[160,90,20],ocean:[80,40,10]},
+  {a:[170,140,255],b:[60,30,140],ocean:[25,12,70]},
+  {a:[140,255,170],b:[20,120,70],ocean:[8,60,40]},
+  {a:[255,160,90],b:[150,50,20],ocean:[70,20,10]},
+];
+function planetTexture(pal,seed){
+  return noiseCanvas(256,(x,s)=>{
+    const fbm=makeFBM(seed);
+    const img=x.createImageData(s,s);
+    for(let j=0;j<s;j++)for(let i=0;i<s;i++){
+      const v=fbm(i/30,j/30),k=(j*s+i)*4;
+      let r,g,b;
+      if(v<.42){[r,g,b]=pal.ocean;}
+      else{const t=(v-.42)/.58;
+        r=pal.b[0]+(pal.a[0]-pal.b[0])*t;
+        g=pal.b[1]+(pal.a[1]-pal.b[1])*t;
+        b=pal.b[2]+(pal.a[2]-pal.b[2])*t;}
+      img.data[k]=r;img.data[k+1]=g;img.data[k+2]=b;img.data[k+3]=255;
+    }
+    x.putImageData(img,0,0);
+  });
+}
+const glowTexCache={};
+function glowTex(rgb){
+  if(glowTexCache[rgb])return glowTexCache[rgb];
+  const t=noiseCanvas(128,(x,s)=>{
+    const g=x.createRadialGradient(s/2,s/2,s*0.3,s/2,s/2,s/2);
+    g.addColorStop(0,`rgba(${rgb},0)`);g.addColorStop(.72,`rgba(${rgb},.55)`);g.addColorStop(1,`rgba(${rgb},0)`);
+    x.fillStyle=g;x.fillRect(0,0,s,s);
+  });
+  glowTexCache[rgb]=t;return t;
+}
+const ringPingTex=glowTex('110,243,255');
+
+let planetObjs=[];
+let pings=[];
+function genSlots(n){
+  const slots=[];
+  const startAz=(Math.random()-.5)*.6;
+  for(let i=0;i<n;i++){
+    const az=startAz+i*(Math.PI*2/n)+(Math.random()-.5)*.5;
+    const el=(Math.random()*.5-.12);
+    const r=58+Math.random()*42;
+    slots.push(new THREE.Vector3(
+      r*Math.cos(el)*Math.sin(az),
+      r*Math.sin(el),
+      -r*Math.cos(el)*Math.cos(az)
+    ));
+  }
+  return slots;
+}
+function affiliateUrl(p){
+  const q=encodeURIComponent(p.name.replace(/·.*$/,'').trim());
+  if(p.source==='aliexpress')return 'https://www.aliexpress.com/wholesale?SearchText='+q;
+  if(p.source==='temu')return 'https://www.temu.com/search_result.html?search_key='+q;
+  return 'https://www.ebay.com/sch/i.html?_nkw='+q;
+}
+function addPlanet(p,pos,isWinner,born,palIdx){
+  const i=planetObjs.length;
+  const grp=new THREE.Group();
+  const pal=PALETTES[((palIdx===undefined||palIdx===null)?Math.floor(Math.random()*PALETTES.length):palIdx)%PALETTES.length];
+  const rad=3.4+(clamp(p.rating,3.5,5)-3.5)*2.6;
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(rad,36,36),
+    new THREE.MeshStandardMaterial({map:planetTexture(pal,100+Math.floor(Math.random()*8000)),roughness:.85,metalness:.02}));
+  mesh.userData.planetIndex=i;
+  grp.add(mesh);
+  const atm=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(isWinner?'255,215,106':pal.a.join(',')),
+    transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:isWinner?.95:.7}));
+  atm.scale.set(rad*3.1,rad*3.1,1);grp.add(atm);
+  if(Math.random()<.5){
+    const ringT=noiseCanvas(128,(x,s)=>{
+      for(let r=0;r<s/2;r++){
+        const a=(r>s*0.30&&r<s*0.47)?(.25+.5*Math.random())*(r%3?1:.3):0;
+        x.strokeStyle=`rgba(220,210,255,${a})`;
+        x.beginPath();x.arc(s/2,s/2,r,0,6.29);x.stroke();
+      }
+    });
+    const ring=new THREE.Mesh(new THREE.RingGeometry(rad*1.35,rad*2.15,48),
+      new THREE.MeshBasicMaterial({map:ringT,transparent:true,side:THREE.DoubleSide,opacity:.85,depthWrite:false}));
+    ring.rotation.x=Math.PI/2.4;grp.add(ring);
+  }
+  grp.position.copy(pos);
+  grp.scale.setScalar(0.001);
+  scene.add(grp);
+
+  const el=document.createElement('div');
+  el.className='plabel';
+  el.innerHTML=`<div class="pn">${esc(p.name)}</div>
+    <div class="pp">${p.price.toFixed(2)} €</div>
+    <div class="pr"><span class="ps ${p.source}">${p.source}</span><span class="open">OTVORIŤ ↗</span></div>
+    <div class="ln"></div>`;
+  $('labels').appendChild(el);
+
+  const ed=document.createElement('div');
+  ed.className='edge';
+  ed.innerHTML=`<span class="arr">➤</span><span>${p.price.toFixed(2)} €</span>`;
+  ed.style.display='none';
+  $('edges').appendChild(ed);
+
+  const o={group:grp,mesh,data:p,labelEl:el,edgeEl:ed,
+    spin:.12+Math.random()*.2,born:(born===undefined||born===null)?performance.now()+250:born,
+    winner:!!isWinner,pinged:false};
+  el.addEventListener('click',e=>{e.stopPropagation();openDealObj(o);});
+  planetObjs.push(o);
+  return o;
+}
+function spawnPlanets(products,winnerIdx){
+  clearPlanets();
+  const slots=genSlots(products.length);
+  products.forEach((p,i)=>addPlanet(p,slots[i],i===winnerIdx,performance.now()+900+i*650,i));
+}
+function clearPlanets(){
+  planetObjs.forEach(o=>{scene.remove(o.group);o.labelEl.remove();o.edgeEl.remove();});
+  planetObjs=[];
+  pings.forEach(p=>scene.remove(p.sp));pings=[];
+}
+function discoveryPing(o){
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:ringPingTex,transparent:true,
+    blending:THREE.AdditiveBlending,depthWrite:false,opacity:.9}));
+  sp.position.copy(o.group.position);
+  sp.scale.setScalar(2);scene.add(sp);
+  pings.push({sp,t:0});
+  blip(620+Math.random()*300);
+}
+function openDealObj(o){
+  blip(980);setTimeout(()=>blip(1240),90);
+  say('Súradnice uzamknuté — otváram obchodný kanál ↗ (v ostrej verzii s tvojím affiliate ID)');
+  window.open(affiliateUrl(o.data),'_blank','noopener');
+}
+function openDeal(i){const o=planetObjs[i];if(o)openDealObj(o);}
+
+/* ---------------- AUDIO ---------------- */
+let AC=null,master=null,engine=null,muted=false,noiseBuf=null;
+function audioInit(){
+  if(AC)return;
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  master=AC.createGain();master.gain.value=.55;master.connect(AC.destination);
+  const bufLen=AC.sampleRate*2;noiseBuf=AC.createBuffer(1,bufLen,AC.sampleRate);
+  const d=noiseBuf.getChannelData(0);let last=0;
+  for(let i=0;i<bufLen;i++){const w=Math.random()*2-1;last=(last+0.02*w)/1.02;d[i]=last*3.2;}
+  const noise=AC.createBufferSource();noise.buffer=noiseBuf;noise.loop=true;
+  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=120;
+  const ng=AC.createGain();ng.gain.value=0;
+  noise.connect(lp).connect(ng).connect(master);noise.start();
+  const sub=AC.createOscillator();sub.type='sine';sub.frequency.value=38;
+  const sg=AC.createGain();sg.gain.value=0;
+  sub.connect(sg).connect(master);sub.start();
+  engine={lp,ng,sg,started:false};
+}
+function engineLevel(v,freq){
+  if(!engine||muted)return;
+  const t=AC.currentTime;
+  engine.ng.gain.linearRampToValueAtTime(v*.5,t+.4);
+  engine.sg.gain.linearRampToValueAtTime(v*.18,t+.4);
+  engine.lp.frequency.linearRampToValueAtTime(freq,t+.6);
+}
+function whoosh(){
+  if(!AC||muted)return;
+  const src=AC.createBufferSource();src.buffer=noiseBuf;
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.Q.value=1.4;
+  bp.frequency.setValueAtTime(180,AC.currentTime);
+  bp.frequency.exponentialRampToValueAtTime(3400,AC.currentTime+1.1);
+  const g=AC.createGain();
+  g.gain.setValueAtTime(.0001,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.5,AC.currentTime+.25);
+  g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+1.4);
+  src.connect(bp).connect(g).connect(master);
+  src.start();src.stop(AC.currentTime+1.5);
+}
+function blip(f){
+  if(!AC||muted)return;
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type='sine';o.frequency.value=f;
+  g.gain.setValueAtTime(.12,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.35);
+  o.connect(g).connect(master);o.start();o.stop(AC.currentTime+.4);
+}
+function chime(){
+  if(!AC||muted)return;
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=>{
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0,AC.currentTime+i*.09);
+    g.gain.linearRampToValueAtTime(.16,AC.currentTime+i*.09+.03);
+    g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+i*.09+.8);
+    o.connect(g).connect(master);o.start(AC.currentTime+i*.09);o.stop(AC.currentTime+i*.09+.9);
+  });
+}
+$('muteBtn').addEventListener('click',()=>{
+  muted=!muted;
+  $('muteBtn').textContent=muted?'♪ ZVUK: OFF':'♪ ZVUK: ON';
+  if(master)master.gain.value=muted?0:.55;
+});
+
+/* ---------------- AI / DÁTA ---------------- */
+async function fetchDeals(query){
+  const sys=`Si generátor demo dát pre vesmírny deal finder. Odpovedz IBA validným JSON bez markdownu a backtickov.`;
+  const usr=`Hľadám: "${query}". Vygeneruj 6 realistických marketplace produktov (2x aliexpress, 2x temu, 2x ebay) v EUR, realistické názvy a ceny pre tento typ produktu. Vyber index najlepšieho dealu (pomer cena/hodnotenie/relevancia) a 1 vetu po slovensky prečo. Formát: {"products":[{"name":"...","price":12.49,"oldPrice":18.99,"rating":4.7,"source":"aliexpress"}],"winner":2,"why":"..."}`;
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,
+        messages:[{role:"user",content:usr}]})});
+    const d=await r.json();
+    const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    if(!parsed.products||parsed.products.length<3)throw 0;
+    parsed.products.forEach(p=>{p.price=+p.price;p.rating=+p.rating||4.2;});
+    return parsed;
+  }catch(e){
+    const base=9+Math.random()*25,srcs=['aliexpress','temu','ebay','aliexpress','temu','ebay'];
+    const ps=srcs.map((s,i)=>({name:query.slice(0,42)+' · v'+(i+1),
+      price:+(base*(0.78+Math.random()*0.6)).toFixed(2),
+      oldPrice:+(base*1.5).toFixed(2),rating:+(3.9+Math.random()).toFixed(1),source:s}));
+    let wi=0;ps.forEach((p,i)=>{if(p.price/p.rating<ps[wi].price/ps[wi].rating)wi=i;});
+    return{products:ps,winner:wi,why:'Najnižšia cena pri najvyššom hodnotení v skene (offline demo dáta).'};
+  }
+}
+
+/* ---------------- STAVOVÝ STROJ ---------------- */
+let PHASE='IDLE';
+let phaseT=0, shake=0, warpPower=0, velocity=0;
+let products=[],winnerIdx=0;
+let camTargetPos=new THREE.Vector3(0,0,0), camLookTarget=null;
+let autoAim=0;
+
+const PHRASES={
+  COUNT:['ODPOČET ZÁŽIHU'],
+  LAUNCH:['ZÁŽIH HLAVNÝCH MOTOROV','OPÚŠŤAM ORBITU'],
+  WARP:['WARP 6 · SEKTOR ALIEXPRESS','SKEN GALAXIE TEMU','PRÍJEM SIGNÁLOV EBAY','TRIANGULÁCIA CIEN'],
+  ARRIVE:['SÚSTAVA DEALOV NA DOHĽAD','ROZHLIADNI SA OKOLO SEBA ⟲'],
+  FOCUS:['OPTIMÁLNY DEAL UZAMKNUTÝ ⬡'],
+  FLY:['VOĽNÝ LET · MANUÁLNE RIADENIE','WASD = ŤAH · MYŠ = ROZHĽAD','KLIK NA ŠTÍTOK = OTVORIŤ DEAL ↗']
+};
+let phraseTimer=null;
+function setPhase(p){
+  PHASE=p;phaseT=0;
+  clearInterval(phraseTimer);
+  const list=PHRASES[p];
+  if(list){let i=0;$('phase').textContent=list[0];
+    phraseTimer=setInterval(()=>{$('phase').textContent=list[++i%list.length];},1900);}
+}
+
+const typedEl=$('typed');
+let typeTimer=null;
+function say(msg){
+  clearInterval(typeTimer);typedEl.textContent='';
+  let i=0;typeTimer=setInterval(()=>{
+    typedEl.textContent=msg.slice(0,++i);
+    if(i>=msg.length)clearInterval(typeTimer);
+  },18);
+}
+say('Vitaj na palube, kapitán. Som NAVI. Rozhliadni sa po kabíne a vyber režim letu: AI MISIA (autopilot nájde najlepší deal) alebo VOĽNÝ LET (pilotuješ sám).');
+
+/* ---------------- LET ---------------- */
+let busy=false;
+function countdown(){
+  return new Promise(res=>{
+    const el=$('count');
+    let n=3;
+    const tick=()=>{
+      if(n===0){el.classList.remove('show');el.style.display='none';res();return;}
+      el.textContent=n;
+      el.style.display='flex';
+      el.classList.remove('show');void el.offsetWidth;el.classList.add('show');
+      blip(n===1?880:440);
+      n--;setTimeout(tick,640);
+    };
+    tick();
+  });
+}
+async function launch(){
+  if(busy||PHASE!=='IDLE')return;
+  const q=$('promptInput').value.trim();
+  if(!q){$('promptInput').focus();return;}
+  busy=true;audioInit();if(AC.state==='suspended')AC.resume();
+  $('console').classList.add('gone');
+  say('');
+
+  const dataPromise=fetchDeals(q);
+
+  setPhase('COUNT');
+  engineLevel(.25,260);          // motory sa roztáčajú už pri odpočte
+  await countdown();
+
+  setPhase('LAUNCH');
+  engineLevel(1,900);shake=1;
+
+  setTimeout(()=>{
+    whoosh();
+    $('flash').style.opacity=.9;
+    setTimeout(()=>$('flash').style.opacity=0,180);
+    setPhase('WARP');engineLevel(.8,2400);
+  },3000);
+
+  const minWarp=new Promise(r=>setTimeout(r,5200+3000));
+  const data=await Promise.all([dataPromise,minWarp]).then(v=>v[0]);
+
+  products=data.products.slice(0,6);
+  winnerIdx=clamp(data.winner||0,0,products.length-1);
+  window.__why=data.why||'';
+  $('tSig').textContent=products.length;
+  $('tSec').textContent='DEAL-SYS ▸ '+q.slice(0,14).toUpperCase();
+
+  whoosh();
+  $('flash').style.opacity=.7;setTimeout(()=>$('flash').style.opacity=0,200);
+  setPhase('ARRIVE');engineLevel(.25,300);
+  $('reticle').style.display='block';
+  say('Sme tu. Planéty s dealmi sú všade okolo nás — otoč sa a preskúmaj ich. Šípky na okraji ťa navedú.');
+  spawnPlanets(products,winnerIdx);
+
+  setTimeout(()=>{
+    setPhase('FOCUS');chime();
+    focusPlanet(winnerIdx,true);
+    busy=false;
+  },products.length*650+3400);
+}
+function focusPlanet(i,isWin=false){
+  const o=planetObjs[i];if(!o)return;
+  camLookTarget=o.group.position.clone();
+  autoAim=1;
+  camTargetPos=o.group.position.clone().multiplyScalar(.65);
+  camTargetPos.y+=2;
+  planetObjs.forEach((p,j)=>{
+    p.labelEl.classList.toggle('win',j===i&&p.winner);
+    p.labelEl.classList.toggle('dimmed',isWin&&j!==i);
+    p.edgeEl.classList.toggle('win',j===i&&p.winner);
+  });
+  if(isWin){
+    const w=products[winnerIdx];
+    $('wName').textContent=w.name;
+    $('wPrice').textContent=w.price.toFixed(2)+' €';
+    const save=w.oldPrice&&w.oldPrice>w.price?'-'+(w.oldPrice-w.price).toFixed(2)+' € ÚSPORA':'★ '+w.rating;
+    $('wSave').textContent=save+' · '+w.source.toUpperCase();
+    $('wWhy').textContent=window.__why||'';
+    $('winPanel').classList.add('shown');
+    say('Deal uzamknutý, kapitán. Najlepší pomer ceny a kvality v celej sústave. Ostatné planéty môžeš stále preskúmať.');
+  }
+}
+
+$('wGo').addEventListener('click',()=>openDeal(winnerIdx));
+$('wAgain').addEventListener('click',reset);
+function reset(){
+  $('winPanel').classList.remove('shown');
+  clearPlanets();
+  setPhase('IDLE');clearInterval(phraseTimer);
+  $('phase').textContent='DOK · PRIPRAVENÁ';
+  $('tSec').textContent='SOL · DOK 7';$('tSig').textContent='0';
+  camTargetPos.set(0,0,0);camLookTarget=null;autoAim=0;
+  shipGroup.position.set(0,0,0);
+  velocity=0;warpPower=0;shake=0;
+  engineLevel(.06,140);
+  $('reticle').style.display='none';$('retInfo').style.display='none';
+  $('console').classList.remove('gone');
+  $('promptInput').value='';$('promptInput').focus();
+  say('Nová misia? Zadaj cieľ, palivo máme.');
+  busy=false;
+}
+
+/* =====================================================================
+   v4 — REŽIMY: AI MISIA / VOĽNÝ LET (browse s WASD pilotovaním)
+   ===================================================================== */
+const CATS=['ELEKTRONIKA','GAMING','DOMÁCNOSŤ','MÓDA','ŠPORT','HRAČKY'];
+let MODE=null,browseQuery='elektronika',browsePool=[],fetchingPool=false,browseGen=0;
+const flyVel=new THREE.Vector3();
+const keys={};
+
+$('promptRow').style.display='none';$('hintRow').style.display='none';
+
+CATS.forEach(label=>{
+  const b=document.createElement('button');b.className='cat';b.textContent=label;
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');$('browseInput').value='';
+    startBrowseScan(label.toLowerCase());
+  });
+  $('cats').appendChild(b);
+});
+
+$('modeAI').addEventListener('click',()=>{
+  MODE='ai';$('modeMenu').style.display='none';
+  $('promptRow').style.display='';$('hintRow').style.display='';
+  $('promptInput').focus();blip(740);
+  say('Autopilot pripravený, kapitán. Zadaj cieľ misie a letíme za najlepším dealom.');
+});
+$('modeFly').addEventListener('click',()=>{
+  MODE='fly';audioInit();if(AC.state==='suspended')AC.resume();
+  $('modeMenu').style.display='none';$('console').classList.add('gone');
+  $('browseBar').classList.add('shown');$('dockBtn').classList.add('shown');
+  $('reticle').style.display='block';
+  setPhase('FLY');engineLevel(.45,800);blip(880);
+  $('tSec').textContent='VOĽNÝ LET ▸ BAZÁR';
+  const first=document.querySelector('.cat');if(first)first.classList.add('on');
+  startBrowseScan('elektronika');
+});
+$('dockBtn').addEventListener('click',backToDock);
+function backToDock(){
+  MODE=null;
+  $('browseBar').classList.remove('shown');$('dockBtn').classList.remove('shown');
+  document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));
+  browseGen++;browsePool=[];flyVel.set(0,0,0);camRig.position.set(0,0,0);
+  reset();
+  $('promptRow').style.display='none';$('hintRow').style.display='none';
+  $('modeMenu').style.display='flex';
+  say('Vitaj späť v doku, kapitán. Vyber si režim letu.');
+}
+
+/* ---- dáta pre voľný let ---- */
+function mockProducts(q,n){
+  const srcs=['aliexpress','temu','ebay'];
+  const adj=['PRO','ULTRA','MAX','MINI','X2','S9','NEO','LITE','PLUS','2.0'];
+  const out=[];
+  for(let i=0;i<n;i++){
+    const base=4+Math.random()*60;
+    out.push({name:q.charAt(0).toUpperCase()+q.slice(1)+' '+adj[Math.floor(Math.random()*adj.length)]+' · model '+(100+Math.floor(Math.random()*900)),
+      price:+base.toFixed(2),oldPrice:+(base*1.45).toFixed(2),
+      rating:+(3.8+Math.random()*1.2).toFixed(1),source:srcs[Math.floor(Math.random()*3)]});
+  }
+  return out;
+}
+async function fetchBrowse(q,n){
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1400,
+        system:"Si generátor demo dát pre vesmírny marketplace. Odpovedz IBA validným JSON poľom bez markdownu a backtickov.",
+        messages:[{role:"user",content:`Vygeneruj ${n} realistických marketplace produktov pre kategóriu alebo hľadanie "${q}" (mix aliexpress/temu/ebay, ceny v EUR, realistické názvy). Formát: [{"name":"...","price":12.49,"oldPrice":18.99,"rating":4.7,"source":"aliexpress"}]`}]})});
+    const d=await r.json();
+    const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const arr=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    if(!Array.isArray(arr)||!arr.length)throw 0;
+    arr.forEach(p=>{p.price=+p.price;p.rating=+p.rating||4.2;});
+    return arr.slice(0,n);
+  }catch(e){return mockProducts(q,n);}
+}
+function startBrowseScan(q){
+  browseQuery=q;browseGen++;
+  clearPlanets();browsePool=[];
+  $('tSec').textContent='SKEN ▸ '+q.slice(0,16).toUpperCase();
+  $('tSig').textContent='0';
+  whoosh();
+  topUpPool();
+}
+async function topUpPool(){
+  if(fetchingPool)return;fetchingPool=true;
+  const gen=browseGen;
+  const items=await fetchBrowse(browseQuery,8);
+  if(gen===browseGen)browsePool.push(...items);
+  fetchingPool=false;
+}
+
+/* ---- WASD let ---- */
+addEventListener('keydown',e=>{
+  if(e.target&&e.target.tagName==='INPUT')return;
+  keys[e.code]=true;
+  if(PHASE==='FLY'&&(e.code==='Space'||e.code.indexOf('Arrow')===0))e.preventDefault();
+});
+addEventListener('keyup',e=>{keys[e.code]=false;});
+function getLookDir(){
+  return new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+}
+let lastEng=0,lastSpawnCheck=0;
+function flyTick(dt,now){
+  const dir=getLookDir();
+  const right=new THREE.Vector3(-dir.z,0,dir.x).normalize();
+  const acc=new THREE.Vector3();
+  if(keys.KeyW||keys.ArrowUp)acc.add(dir);
+  if(keys.KeyS||keys.ArrowDown)acc.addScaledVector(dir,-1);
+  if(keys.KeyD||keys.ArrowRight)acc.add(right);
+  if(keys.KeyA||keys.ArrowLeft)acc.addScaledVector(right,-1);
+  if(keys.Space)acc.y+=1;
+  if(keys.ShiftLeft||keys.ShiftRight)acc.y-=1;
+  if(acc.lengthSq()>0){acc.normalize();flyVel.addScaledVector(acc,dt*64);}
+  flyVel.multiplyScalar(Math.pow(.18,dt));
+  const sp=flyVel.length(),max=48;
+  if(sp>max)flyVel.multiplyScalar(max/sp);
+  shipGroup.position.addScaledVector(flyVel,dt);
+  velocity=sp/max*1.6;
+  shake=clamp(sp/max*.22,0,.25);
+  if(now-lastEng>240){engineLevel(.15+sp/max*.7,300+sp/max*1900);lastEng=now;}
+}
+function despawnFar(){
+  let removed=false;
+  for(let i=planetObjs.length-1;i>=0;i--){
+    const o=planetObjs[i];
+    if(o.group.position.distanceTo(shipGroup.position)>460){
+      scene.remove(o.group);o.labelEl.remove();o.edgeEl.remove();
+      planetObjs.splice(i,1);removed=true;
+    }
+  }
+  if(removed){
+    planetObjs.forEach((o,idx)=>{o.mesh.userData.planetIndex=idx;});
+    $('tSig').textContent=planetObjs.length;
+  }
+}
+function browseSpawnTick(now){
+  if(now-lastSpawnCheck<650)return;lastSpawnCheck=now;
+  despawnFar();
+  if(browsePool.length<4&&!fetchingPool)topUpPool();
+  if(planetObjs.length>=14||!browsePool.length)return;
+  const p=browsePool.shift();
+  const dir=getLookDir();
+  const dist=85+Math.random()*130;
+  const pos=new THREE.Vector3().copy(shipGroup.position)
+    .addScaledVector(dir,dist)
+    .add(new THREE.Vector3((Math.random()-.5)*130,(Math.random()-.5)*70,(Math.random()-.5)*130));
+  addPlanet(p,pos);
+  $('tSig').textContent=planetObjs.length;
+}
+
+$('browseGo').addEventListener('click',()=>{
+  const q=$('browseInput').value.trim();
+  if(!q)return;
+  document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));
+  startBrowseScan(q);
+});
+$('browseInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('browseGo').click();}});
+
+/* ---------------- 360° OVLÁDANIE ---------------- */
+let yaw=0,pitch=0,yawV=0,pitchV=0;
+let dragging=false,lastX=0,lastY=0,dragDist=0;
+canvasEl.addEventListener('pointerdown',e=>{
+  dragging=true;dragDist=0;lastX=e.clientX;lastY=e.clientY;
+  canvasEl.classList.add('grabbing');
+  canvasEl.setPointerCapture(e.pointerId);
+  audioInit();if(AC&&AC.state==='suspended')AC.resume();
+  if(engine&&!engine.started){engineLevel(.06,140);engine.started=true;}
+});
+canvasEl.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  const dx=e.clientX-lastX,dy=e.clientY-lastY;
+  lastX=e.clientX;lastY=e.clientY;
+  dragDist+=Math.abs(dx)+Math.abs(dy);
+  const k=0.0042;
+  yaw-=dx*k; pitch-=dy*k;
+  yawV=-dx*k*8; pitchV=-dy*k*8;
+  pitch=clamp(pitch,-1.35,1.35);
+  autoAim=0;
+});
+canvasEl.addEventListener('pointerup',e=>{
+  dragging=false;canvasEl.classList.remove('grabbing');
+  if(dragDist<6)tryPickPlanet(e.clientX,e.clientY);
+});
+canvasEl.addEventListener('pointercancel',()=>{dragging=false;canvasEl.classList.remove('grabbing');});
+
+const raycaster=new THREE.Raycaster();
+const mouse2=new THREE.Vector2();
+function tryPickPlanet(px,py){
+  if(!planetObjs.length)return;
+  mouse2.x=(px/innerWidth)*2-1;
+  mouse2.y=-(py/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse2,camera);
+  const hits=raycaster.intersectObjects(planetObjs.map(o=>o.mesh));
+  if(hits.length){
+    const i=hits[0].object.userData.planetIndex;
+    blip(740);
+    focusPlanet(i,false);
+    say('Zameriavam planétu — klikni na štítok a otvorím deal ↗');
+  }
+}
+
+$('launchBtn').addEventListener('click',launch);
+$('promptInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();launch();}});
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+setInterval(()=>{
+  const d=new Date();
+  $('clock').textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+},1000);
+
+const DIRS=['N','NE','E','SE','S','SW','W','NW'];
+const strip=$('compassStrip');
+strip.innerHTML=(DIRS.concat(DIRS,DIRS)).map(d=>`<span>${d}</span>`).join('');
+
+/* ---------------- HLAVNÁ SLUČKA ---------------- */
+const v3=new THREE.Vector3();
+const camSpace=new THREE.Vector3();
+const camWorldPos=new THREE.Vector3();
+const rayDir=new THREE.Vector3();
+const occlRay=new THREE.Raycaster();
+let lastT=performance.now();
+function animate(now){
+  const dt=Math.min(.05,(now-lastT)/1000);lastT=now;phaseT+=dt;
+
+  if(PHASE==='IDLE'||PHASE==='COUNT'){
+    velocity=lerp(velocity,0,dt*2);warpPower=lerp(warpPower,0,dt*2);
+    shake=lerp(shake,PHASE==='COUNT'?.18:0,dt*3);
+    shipGroup.position.y=Math.sin(now/2400)*.12;
+  }
+  if(PHASE==='LAUNCH'){
+    velocity=lerp(velocity,0.35,dt*1.2);shake=lerp(shake,1,dt*2);
+    earth.position.y-=dt*55;earthGlow.position.copy(earth.position);
+  }
+  if(PHASE==='WARP'){
+    velocity=lerp(velocity,6,dt*1.4);warpPower=lerp(warpPower,1,dt*1.6);shake=lerp(shake,.35,dt*2);
+    earth.position.y=lerp(earth.position.y,-4000,dt*.6);earthGlow.position.copy(earth.position);
+  }
+  if(PHASE==='ARRIVE'||PHASE==='FOCUS'){
+    velocity=lerp(velocity,.12,dt*2);warpPower=lerp(warpPower,0,dt*2.2);shake=lerp(shake,0,dt*2);
+  }
+  if(PHASE==='FLY'){
+    flyTick(dt,now);browseSpawnTick(now);
+    warpPower=lerp(warpPower,0,dt*2.5);
+  }
+
+  /* FOV kick podľa warpu + rýchlosti */
+  const targetFov=BASE_FOV+warpPower*16+velocity*1.2;
+  if(Math.abs(camera.fov-targetFov)>.05){
+    camera.fov=lerp(camera.fov,targetFov,dt*3);
+    camera.updateProjectionMatrix();
+  }
+
+  $('tVel').textContent=velocity.toFixed(2)+'c';
+  $('bVel').style.transform='scaleX('+clamp(velocity/6,0,1)+')';
+
+  [starsNear,starsMid,starsFar].forEach((layer,li)=>{
+    layer.rotation.y+=dt*0.002*(3-li)*(0.3+velocity*.4);
+  });
+
+  warpMat.opacity=warpPower*.9;
+  if(warpPower>0.02){
+    const arr=warpGeo.attributes.position.array;
+    for(let i=0;i<WARP_N;i++){
+      const w=wData[i];
+      w.z+=w.sp*(20+220*warpPower)*dt;
+      if(w.z>6){w.z=-280-Math.random()*60;w.a=Math.random()*Math.PI*2;w.r=2.6+Math.random()*26;}
+      const x=Math.cos(w.a)*w.r,y=Math.sin(w.a)*w.r;
+      const len=(2+34*warpPower)*w.sp*.4;
+      arr[i*6]=x;arr[i*6+1]=y;arr[i*6+2]=w.z;
+      arr[i*6+3]=x;arr[i*6+4]=y;arr[i*6+5]=w.z-len;
+    }
+    warpGeo.attributes.position.needsUpdate=true;
+  }
+
+  if(shake>0.01){
+    if(PHASE==='FLY'){
+      camRig.position.set((Math.random()-.5)*.05*shake,(Math.random()-.5)*.04*shake,0);
+    }else{
+      shipGroup.position.x=(Math.random()-.5)*.06*shake;
+      shipGroup.position.y+=(Math.random()-.5)*.05*shake;
+    }
+    shipGroup.rotation.z=(Math.random()-.5)*.012*shake;
+  }else{shipGroup.rotation.z=lerp(shipGroup.rotation.z,0,dt*4);camRig.position.lerp(new THREE.Vector3(0,0,0),dt*6);}
+
+  /* talizman sa hojdá podľa pohybu */
+  talisman.rotation.z=Math.sin(now/740)*.1+Math.sin(now/213)*.05*shake - velocity*.04;
+  talisman.rotation.x=Math.sin(now/911)*.08+(Math.random()-.5)*.06*shake;
+
+  /* LED blikanie */
+  leds.forEach(l=>{l.material.emissiveIntensity=1+Math.sin(now/420+l.userData.blink)*.9;});
+
+  if(!dragging){
+    yaw+=yawV*dt*8; pitch+=pitchV*dt*8;
+    yawV*=Math.pow(.0025,dt); pitchV*=Math.pow(.0025,dt);
+    pitch=clamp(pitch,-1.35,1.35);
+  }
+  if(autoAim>0.01&&camLookTarget){
+    const dir=v3.copy(camLookTarget).sub(shipGroup.position).normalize();
+    const tYaw=Math.atan2(-dir.x,-dir.z);
+    const tPitch=Math.asin(clamp(dir.y,-1,1));
+    let dY=tYaw-yaw; while(dY>Math.PI)dY-=Math.PI*2; while(dY<-Math.PI)dY+=Math.PI*2;
+    yaw+=dY*dt*1.8*autoAim;
+    pitch=lerp(pitch,tPitch,dt*1.8*autoAim);
+  }
+  camRig.rotation.y=yaw;
+  camera.rotation.x=pitch;
+
+  const deg=((-yaw*180/Math.PI)%360+360)%360;
+  strip.style.transform='translateX('+(-(deg/45)*85-85*8)+'px)';
+
+  if(PHASE!=='FLY')shipGroup.position.lerp(v3.copy(camTargetPos),dt*.9);
+
+  planetObjs.forEach(o=>{
+    if(now>o.born){
+      if(!o.pinged){o.pinged=true;discoveryPing(o);}
+      const t=clamp((now-o.born)/900,0,1);
+      const s=t<.7?t/.7*1.12:1.12-(t-.7)/.3*.12;
+      o.group.scale.setScalar(Math.max(.001,s));
+      if(t>=.3)o.labelEl.classList.add('shown');
+    }
+    o.mesh.rotation.y+=dt*o.spin;
+    if(o.winner&&PHASE==='FOCUS'){
+      const p=1+Math.sin(now/300)*.04;
+      o.group.scale.setScalar(1.12*p);
+    }
+  });
+
+  for(let i=pings.length-1;i>=0;i--){
+    const p=pings[i];p.t+=dt;
+    p.sp.scale.setScalar(2+p.t*38);
+    p.sp.material.opacity=Math.max(0,.9-p.t*1.1);
+    if(p.t>1){scene.remove(p.sp);pings.splice(i,1);}
+  }
+
+  /* labely: projekcia + occlusion cez trup + edge indikátory */
+  camera.getWorldPosition(camWorldPos);
+  planetObjs.forEach(o=>{
+    if(!o.labelEl.classList.contains('shown')){o.edgeEl.style.display='none';return;}
+    v3.setFromMatrixPosition(o.group.matrixWorld);
+    camSpace.copy(v3).applyMatrix4(camera.matrixWorldInverse);
+    const proj=v3.project(camera);
+    const inFront=camSpace.z<0;
+    const sx=(proj.x*.5+.5)*innerWidth;
+    const sy=(-proj.y*.5+.5)*innerHeight;
+    const margin=80;
+    let onScreen=inFront&&sx>margin&&sx<innerWidth-margin&&sy>margin&&sy<innerHeight-margin;
+
+    /* occlusion: planéta schovaná za pilierom/pásom trupu? */
+    if(onScreen){
+      v3.setFromMatrixPosition(o.group.matrixWorld);
+      rayDir.copy(v3).sub(camWorldPos).normalize();
+      occlRay.set(camWorldPos,rayDir);
+      occlRay.far=8; // trup je do ~3 m
+      if(occlRay.intersectObjects(occluders).length)onScreen=false;
+    }
+
+    if(onScreen){
+      o.labelEl.style.display='block';o.edgeEl.style.display='none';
+      const r=clamp(o.group.scale.x,0.001,2);
+      o.labelEl.style.left=sx+'px';
+      o.labelEl.style.top=(sy-30*r)+'px';
+    }else{
+      o.labelEl.style.display='none';
+      let dx=camSpace.x, dy=camSpace.y;
+      if(!inFront){dx=-dx;dy=-dy;}
+      const ang=Math.atan2(dy,dx);
+      const cx=innerWidth/2,cy=innerHeight/2;
+      const ex=cx+Math.cos(ang)*(cx-150);
+      const ey=cy-Math.sin(ang)*(cy-150);
+      o.edgeEl.style.display='flex';
+      o.edgeEl.style.left=clamp(ex,170,innerWidth-220)+'px';
+      o.edgeEl.style.top=clamp(ey,110,innerHeight-170)+'px';
+      o.edgeEl.querySelector('.arr').style.transform='rotate('+(-ang)+'rad)';
+    }
+  });
+
+  /* stredový zameriavač — info o planéte pod krížom */
+  if(planetObjs.length&&PHASE!=='IDLE'&&PHASE!=='COUNT'){
+    raycaster.setFromCamera({x:0,y:0},camera);
+    const hits=raycaster.intersectObjects(planetObjs.map(o=>o.mesh));
+    if(hits.length){
+      const o=planetObjs[hits[0].object.userData.planetIndex];
+      $('retInfo').textContent=o.data.price.toFixed(2)+' € · '+o.data.source.toUpperCase()+' · KLIK = ZAMERAŤ';
+      $('retInfo').style.display='block';
+    }else $('retInfo').style.display='none';
+  }
+
+  cockpitLight.intensity=.85+velocity*.12+Math.sin(now/500)*.08;
+  dashLight.intensity=.4+shake*.5;
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
